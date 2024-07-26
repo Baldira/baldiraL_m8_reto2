@@ -1,0 +1,220 @@
+---
+title: "Dashboard datos emociones positivas y negativas"
+author: "L. Baldira"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(maps)
+library(DT)
+library(ggplot2)
+library(dplyr)
+library(shiny)
+
+
+```
+
+```{r message=FALSE, results='hide'}
+datos <- read.csv("BBDD_DEPURADA.csv")
+str(datos)
+summary(datos)
+
+#Volvemos a cambiar el formato de las variables y borramos columnas innecesarias
+#borramos columna "X"
+datos <- datos[, -which(names(datos) == "X")]
+
+#Transformamos los valores de año con su año correspondiente y lo pasamos a factor
+datos <- datos %>%
+  mutate(año = case_when(
+    año == 3 ~ 2006,
+    año == 7 ~ 2014,
+    año == 11 ~ 2023,
+    
+  )) %>%
+  mutate(año = factor(año, levels = c(2006, 2014, 2023)))
+
+#Transformamos variable cntry a factor de nuevo
+datos$cntry <- factor(datos$cntry)
+
+#Transformamos las variables de interés a versiones numéricas para la realización de los Dashborads y encontrar las medias por edad o país
+datos2 <- datos %>%
+  mutate(
+    felicidad = case_when(
+      felicidad == "None or almost none of the time" ~ 1,
+      felicidad == "Some of the time" ~ 2,
+      felicidad == "Most of the time" ~ 3,
+      felicidad == "All or almost all of the time" ~ 4
+    ),
+    depresion = case_when(
+      depresion == "None or almost none of the time" ~ 1,
+      depresion == "Some of the time" ~ 2,
+      depresion == "Most of the time" ~ 3,
+      depresion == "All or almost all of the time" ~ 4
+    ),
+    tristeza = case_when(
+      tristeza == "None or almost none of the time" ~ 1,
+      tristeza == "Some of the time" ~ 2,
+      tristeza == "Most of the time" ~ 3,
+      tristeza == "All or almost all of the time" ~ 4
+    ),
+    disfrute_de_vida = case_when(
+      disfrute_de_vida == "None or almost none of the time" ~ 1,
+      disfrute_de_vida == "Some of the time" ~ 2,
+      disfrute_de_vida == "Most of the time" ~ 3,
+      disfrute_de_vida == "All or almost all of the time" ~ 4
+    )
+  )
+
+
+#pasamos variables de interes a factores para la tabla
+datos$disfrute_de_vida <- factor(datos$disfrute_de_vida)
+
+datos$felicidad <- factor(datos$felicidad)
+
+datos$tristeza <- factor(datos$tristeza)
+
+datos$depresion <- factor(datos$depresion)
+
+
+
+str(datos)
+summary(datos)
+str(datos2)
+
+
+
+Vars_pais <- paste0(c("AT", "CH", "DE", "FI", "GB", "HU", "IE", "NL", "NO", "SI"))
+
+
+Vars <- paste0(c("felicidad","disfrute_de_vida","tristeza","depresion"))
+
+
+
+
+
+```
+
+Gráficos {data-icon="fa-signal"}
+====================
+
+Column {.sidebar data-height=150}
+------------------------------
+
+```{r}
+selectInput("tipo_emo", label="tipo emocion", choices=c("TODOS", Vars), selected="TODOS", width = "200px")
+selectInput("pais_sel", label = "selecciona un pais", choices = c("TODOS", Vars_pais), selected = "TODOS", width = "200px")
+selectInput("tipo_emo_3r_grafico", label = "Tipo emocion para edad", choices = Vars, selected = Vars[1], width = "200px")
+
+
+
+```
+
+
+
+
+
+Column {data-width=550}
+-----------------------------------------------------------------------
+
+### Emociones globales para `r reactive(input$tipo_emo)`
+
+```{r}
+renderPlot({
+  datos.m <- datos2 %>%
+  group_by(año) %>%
+  summarise(across(all_of(Vars), ~ mean(.x, na.rm = TRUE)))
+  df <- datos.m %>%
+  select(año, felicidad:depresion) %>%
+  pivot_longer(names_to = "variable", values_to = "media", -año) %>%
+  filter(str_detect(variable,if_else(input$tipo_emo=="TODOS",".*.",input$tipo_emo)))
+  ggplot(df,aes(x = año, y = media, group = variable)) +
+    geom_line(aes(color = variable, linetype = variable)) +
+    theme(legend.position = "bottom",legend.text = element_text(size=7)) +
+    labs(color=NULL, linetype=NULL) + xlab(NULL) + ylab(NULL)
+  
+})
+
+names(datos2)
+print(df)
+str(df)
+```
+
+Column {data-width=450}
+-----------------------------------------------------------------------
+
+### Emociones `r reactive(input$pais_sel)`
+
+```{r}
+renderPlot({
+  pais <- datos2 %>% filter(str_detect(cntry,if_else(input$pais_sel=="TODOS",".*.",input$pais_sel)))
+  
+  datos.m <- pais %>%
+    group_by(año) %>%
+    summarise(across(Vars, mean))
+  
+  df <- datos.m %>%
+    select(año, felicidad:depresion) %>%
+    gather(key= "variable", value = "Media", -año)
+  
+  ggplot(df, aes(x = año, y = Media, , group = variable)) +
+    geom_line(aes(color = variable, linetype = variable), lwd=1.) +
+    theme(legend.position = "right", legend.text = element_text(size=8),axis.text.x = element_text(size=12)) +
+    labs(color=NULL, linetype=NULL) + xlab(NULL) + ylab(NULL)
+  
+})
+
+
+```
+
+### Diferencia edades para `r reactive(input$tipo_emo_3r_grafico)`
+
+```{r}
+renderPlot({
+  # Filtrar los datos según la emoción seleccionada
+  datos.m2 <- datos2 %>%
+    group_by(agea) %>%
+    summarise(Media = mean(.data[[input$tipo_emo_3r_grafico]], na.rm = TRUE))
+
+  # Graficar el gráfico de barras
+  ggplot(datos.m2, aes(x = agea, y = Media)) +
+    geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+    theme_minimal() +
+    labs(x = "Edad", y = "Media de la emoción", title = paste("Media de", input$tipo_emo_3r_grafico, "por Edad")) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12), 
+          axis.text.y = element_text(size = 12), 
+          axis.title = element_text(size = 14), 
+          plot.title = element_text(size = 16))
+})
+
+```
+
+Tablas {data-icon="fa-table"}
+=============
+
+```{r}
+datatable(datos,
+          caption="Datos emociones positivas y negativas",
+          rownames = T,
+          filter = "top",
+          options = list(pageLength=25))
+```
+
+
+
+
+Acerca del estudio {data-icon="fa-globe"}
+====================
+
+**Respecto a los gráficos**
+
+Con el presente estudio se pretende mostrar los diferentes niveles de emociones positivas (felicidad y disfrute de la vida) y emociones negativas (depresión y tristeza) a lo largo de 3 periodos concretos (2006, 2014 y 2023, años disponibles para las variables del proyecto), mostrando las diferencias que podemos encontrar en función de la edad, o del país de los participantes. En este dashboard, se muestran 3 gráficos: el primero, podemos observar las medias totales de cada emoción en cada periodo anual, en el segundo las medias de cada emoción en cada periodo por país, y en el tercero las medias de cada emoción por edad. A primera vista, no se observan grandes diferencias en cuanto a la percepción de emociones positivas y negativas en función de la edad, a excepción de una ligera tendencia creciente en cuanto a depresión y tristeza entre los 75 y 90 años, volviendo a decaer después de esa franja. En cuanto a los paises tampoco se aprecian grandes diferencias, todos se mantienen en un rango similar, y a nivel global destacar que en 2014 se encontramos los picos de mayor valor para las emociones positivas, y de menor valor para las emociones negativas, cambiando la tendencia de 2006 a 2023, aunque estos cambios no parecen muy significativos pues los valores medios varian entre 0.1 y 0.05.
+
+
+

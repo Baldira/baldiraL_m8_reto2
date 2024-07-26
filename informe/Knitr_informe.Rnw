@@ -1,0 +1,335 @@
+\documentclass{article}
+
+\usepackage{multicol}
+\usepackage{geometry}
+\usepackage{blindtext}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{pdfpages}
+
+\geometry{
+  a4paper,
+  left=20mm,
+  right=20mm,
+  top=20mm,
+  bottom=20mm
+}
+
+\renewcommand{\tablename}{Tabla}
+
+\title{Proyecto de ciencia de datos reproducible}
+\author{Lluís Baldirà Jorro}
+\date{\today}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+
+\maketitle
+
+\section*{Datos emociones positivas y negativas}
+\textbf{En el presente documento se lleva a cabo un estudio para observar los diferentes niveles de emociones positivas y negativas a lo largo de tres periodos anuales (2006, 2014 y 2023) para diferentes paises y edades. A continuación se mostraran los objetivos del proyecto y la definición de las variables con las que se va a trabajar:}
+\subsection*{Objectivo principal}
+\emph{Evaluar la evolución de las emociones positivas y negativas en diferentes países a lo largo del tiempo, analizando las diferencias entre grupos de edad y países, con el fin de identificar patrones y tendencias que puedan contribuir a una mejor comprensión del bienestar subjetivo a nivel internacional.}
+\subsubsection*{Objetivos específicos}
+\begin{itemize}
+\item Caracterizar los niveles de felicidad, disfrute de vida, tristeza y depresión en cada país y periodo.
+\item Explorar si existen patrones o tendencias en la evolución de las emociones a lo largo del tiempo (por ejemplo, aumento o disminución de la felicidad a lo largo de los 3 periodos).
+\item Evaluar si la edad es un factor significativo en la experiencia emocional.
+\item Analizar las diferencias en los niveles de emociones positivas y negativas entre países y grupos de edad.
+\item Representar los resultados de manera clara y concisa utilizando gráficos y tablas
+\end{itemize}
+
+<<setup, echo=FALSE>>=
+if (!require(tinytex)) {
+  install.packages('tinytex')
+  library(tinytex)
+}
+#tinytex::tlmgr_install('blindtext')
+@
+
+
+\section{Definición de las variables}
+\begin{enumerate}
+\item \underline{felicidad}: nivel de felicidad en la última semana, con 4 opciones de respuesta de 1 (None or almost none of the time) a 4 (All or almost all of the time).
+
+\item \underline{disfrute de vida}: Nivel de disfrute de vida la ultima semana, con 4 opciones de respuesta de 1 (None or almost none of the time) a 4 (All or almost all of the time).
+
+\item \underline{tristeza}: nivel de tristeza en la última semana, con 4 opciones de respuesta de 1 (None or almost none of the time) a 4 (All or almost all of the time).
+
+\item \underline{depresion}: nivel de depresión en la última semana, con 4 opciones de respuesta de 1 (None or almost none of the time) a 4 (All or almost all of the time).
+
+\item \underline{cntry}: País del participante de donde se ha sacado la observación.
+
+\item \underline{año}: Año en que se ha obtenido la observación, pudiendo ser 2006, 2014 o 2023.
+
+\item \underline{agea}: Edad del participante.
+
+\end{enumerate}
+
+
+
+\section{Tabla resumen de las variables}
+
+
+<<setup, echo=FALSE>>=
+library(dplyr)
+library(psych)
+datos <- read.csv("BBDD_DEPURADA.csv")
+#Volvemos a cambiar el formato de las variables y borramos columnas innecesarias
+#borramos columna "X"
+datos <- datos[, -which(names(datos) == "X")]
+#Transformamos los valores de año con su año correspondiente y lo pasamos a factor
+datos <- datos %>%
+  mutate(año = case_when(
+    año == 3 ~ 2006,
+    año == 7 ~ 2014,
+    año == 11 ~ 2023,
+    
+  )) %>%
+  mutate(año = factor(año, levels = c(2006, 2014, 2023)))
+#Transformamos variable cntry a factor de nuevo
+datos$cntry <- factor(datos$cntry)
+#Transformamos las variables de interés a versiones numéricas para la realización de los Dashborads y encontrar las medias por edad o país
+datos2 <- datos %>%
+  mutate(
+    felicidad = case_when(
+      felicidad == "None or almost none of the time" ~ 1,
+      felicidad == "Some of the time" ~ 2,
+      felicidad == "Most of the time" ~ 3,
+      felicidad == "All or almost all of the time" ~ 4
+    ),
+    depresion = case_when(
+      depresion == "None or almost none of the time" ~ 1,
+      depresion == "Some of the time" ~ 2,
+      depresion == "Most of the time" ~ 3,
+      depresion == "All or almost all of the time" ~ 4
+    ),
+    tristeza = case_when(
+      tristeza == "None or almost none of the time" ~ 1,
+      tristeza == "Some of the time" ~ 2,
+      tristeza == "Most of the time" ~ 3,
+      tristeza == "All or almost all of the time" ~ 4
+    ),
+    disfrute_de_vida = case_when(
+      disfrute_de_vida == "None or almost none of the time" ~ 1,
+      disfrute_de_vida == "Some of the time" ~ 2,
+      disfrute_de_vida == "Most of the time" ~ 3,
+      disfrute_de_vida == "All or almost all of the time" ~ 4
+    )
+  )
+
+describe(datos2 %>%
+  select(felicidad, disfrute_de_vida, tristeza, depresion, agea))
+
+cat("Posibles valores de cntry:\n")
+print(unique(datos2$cntry))
+@
+
+
+\section{Gráficos del proyecto}
+\subsection{Gráficos de emociones por año}
+
+<<setup, echo=FALSE>>=
+library(ggplot2)
+library(dplyr)
+@
+
+
+<<echo=FALSE, fig.width=6, fig.height=4>>=
+# Generar gráfico de Felicidad
+library(tidyverse)
+ggplot(datos2 %>%
+         group_by(año) %>%
+         summarise(media_felicidad = mean(felicidad, na.rm = TRUE)),
+       aes(x = año, y = media_felicidad)) +
+  geom_line(color = "blue", linetype = "dashed", linewidth = 6) +
+  geom_point(color = "red", size = 6) +
+  ggtitle("Media de Felicidad por Año") +
+  xlab("Año") +
+  ylab("Media de Felicidad")
+
+
+
+
+# Generar gráfico de Disfrute
+ggplot(datos2 %>%
+         group_by(año) %>%
+         summarise(media_disfrute = mean(disfrute_de_vida, na.rm = TRUE)),
+       aes(x = año, y = media_disfrute)) +
+  geom_line(color = "blue", linetype = "dashed", linewidth = 6) +
+  geom_point(color = "green", size = 6) +
+  ggtitle("Media de disfrute de vida por Año") +
+  xlab("Año") +
+  ylab("Media de disfrute de vida")
+
+
+# Generar gráfico de tristeza
+ggplot(datos2 %>%
+         group_by(año) %>%
+         summarise(media_tristeza = mean(tristeza, na.rm = TRUE)),
+       aes(x = año, y = media_tristeza)) +
+  geom_line(color = "blue", linetype = "dashed", linewidth = 6) +
+  geom_point(color = "purple", size = 6) +
+  ggtitle("Media de tristeza por Año") +
+  xlab("Año") +
+  ylab("Media de tristeza")
+
+
+# Generar gráfico de depresion
+ggplot(datos2 %>%
+         group_by(año) %>%
+         summarise(media_depresion = mean(depresion, na.rm = TRUE)),
+       aes(x = año, y = media_depresion)) +
+  geom_line(color = "blue", linetype = "dashed", linewidth = 6) +
+  geom_point(color = "black", size = 6) +
+  ggtitle("Media de depresion por Año") +
+  xlab("Año") +
+  ylab("Media de depresion")
+
+
+
+
+
+@
+\includepdf[pages=1-4]{Rplots.pdf}
+
+
+
+
+\subsection{Gráficos de emociones por país}
+
+
+<<echo=FALSE, fig.width=6, fig.height=4>>=
+
+
+# Lista de países
+paises <- unique(datos2$cntry)
+
+# Para cada país, crear un gráfico y guardarlo
+for (pais in paises) {
+  
+  # Filtrar datos para el país actual
+  datos_pais <- datos2 %>% filter(cntry == pais)
+  
+  # Generar gráficos de todas las emociones en un solo gráfico por país
+  p <- datos_pais %>%
+    group_by(año) %>%
+    summarise(
+      media_felicidad = mean(felicidad, na.rm = TRUE),
+      media_disfrute = mean(disfrute_de_vida, na.rm = TRUE),
+      media_tristeza = mean(tristeza, na.rm = TRUE),
+      media_depresion = mean(depresion, na.rm = TRUE)
+    ) %>%
+    pivot_longer(
+      cols = starts_with("media_"),
+      names_to = "emocion",
+      values_to = "media"
+    ) %>%
+    ggplot(aes(x = año, y = media, color = emocion, linetype = emocion)) +
+    geom_line() +
+    geom_point() +
+    ggtitle(paste("Media de Emociones por Año -", pais)) +
+    xlab("Año") +
+    ylab("Media de Emoción") +
+    theme_minimal()
+  
+  # Imprimir el gráfico (esto generará los gráficos en el documento final)
+  print(p)
+}
+
+@
+
+
+<<echo=FALSE>>=
+#tinytex::tlmgr_install("pdfpages")
+#tinytex::tlmgr_install("pdflscape")
+@
+
+
+
+\includepdf[pages=5-14]{Rplots.pdf}
+
+
+
+\subsection{Gráficos de emociones por edad}
+
+
+<<echo=FALSE, fig.width=6, fig.height=4>>=
+# Generar gráfico de barras para Felicidad
+p_felicidad <- datos2 %>%
+  group_by(agea) %>%
+  summarise(media_felicidad = mean(felicidad, na.rm = TRUE)) %>%
+  as.data.frame() %>%  # Asegúrate de que sea un data.frame
+  ggplot(aes(x = factor(agea), y = media_felicidad)) +
+  geom_bar(stat = "identity", fill = "blue", color = "black") +
+  ggtitle("Media de Felicidad por Edad") +
+  xlab("Edad") +
+  ylab("Media de Felicidad") +
+  theme_minimal() +
+  scale_x_discrete(breaks = function(x) x[seq(1, length(x), by = 5)])  
+
+# Generar gráfico de barras para Disfrute de Vida
+p_disfrute <- datos2 %>%
+  group_by(agea) %>%
+  summarise(media_disfrute = mean(disfrute_de_vida, na.rm = TRUE)) %>%
+  as.data.frame() %>%  # Asegúrate de que sea un data.frame
+  ggplot(aes(x = factor(agea), y = media_disfrute)) +
+  geom_bar(stat = "identity", fill = "green", color = "black") +
+  ggtitle("Media de Disfrute de Vida por Edad") +
+  xlab("Edad") +
+  ylab("Media de Disfrute de Vida") +
+  theme_minimal() +
+  scale_x_discrete(breaks = function(x) x[seq(1, length(x), by = 5)]) 
+
+# Generar gráfico de barras para Tristeza
+p_tristeza <- datos2 %>%
+  group_by(agea) %>%
+  summarise(media_tristeza = mean(tristeza, na.rm = TRUE)) %>%
+  as.data.frame() %>%  # Asegúrate de que sea un data.frame
+  ggplot(aes(x = factor(agea), y = media_tristeza)) +
+  geom_bar(stat = "identity", fill = "purple", color = "black") +
+  ggtitle("Media de Tristeza por Edad") +
+  xlab("Edad") +
+  ylab("Media de Tristeza") +
+  theme_minimal() +
+  scale_x_discrete(breaks = function(x) x[seq(1, length(x), by = 5)]) 
+
+# Generar gráfico de barras para Depresión
+p_depresion <- datos2 %>%
+  group_by(agea) %>%
+  summarise(media_depresion = mean(depresion, na.rm = TRUE)) %>%
+  as.data.frame() %>%  # Asegúrate de que sea un data.frame
+  ggplot(aes(x = factor(agea), y = media_depresion)) +
+  geom_bar(stat = "identity", fill = "grey", color = "black") +
+  ggtitle("Media de Depresión por Edad") +
+  xlab("Edad") +
+  ylab("Media de Depresión") +
+  theme_minimal() +
+  scale_x_discrete(breaks = function(x) x[seq(1, length(x), by = 5)]) 
+
+# Imprimir los gráficos
+print(p_felicidad)
+print(p_disfrute)
+print(p_tristeza)
+print(p_depresion)
+@
+
+\includepdf[pages=15-18]{Rplots.pdf}
+
+
+\section*{Comentarios}
+A primera vista, no se observan grandes diferencias en cuanto a la percepción de emociones positivas y negativas en función de la edad, a excepción de una ligera tendencia creciente en cuanto a depresión y tristeza entre los 75 y 90 años, volviendo a decaer después de esa franja. En cuanto a los paises tampoco se aprecian grandes diferencias, todos se mantienen en un rango similar, y a nivel global destacar que en 2014 se encontramos los picos de mayor valor para las emociones positivas, y de menor valor para las emociones negativas, cambiando la tendencia de 2006 a 2023, aunque estos cambios no parecen muy significativos pues los valores medios varian entre 0.1 y 0.05.
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}

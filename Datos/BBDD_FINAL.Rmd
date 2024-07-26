@@ -1,0 +1,156 @@
+---
+title: "primer documento r02mod08"
+author: "me"
+date: "2024-07-25"
+output: html_document
+---
+
+#CARGA DE LA BBDD Y DEPURACIÓN
+
+```{r setup, warning=FALSE, message=FALSE}
+library(ggpubr)
+library(tidyverse)
+library(ggQC)
+library(patchwork)
+library(scales)
+library(e1071)
+library(UsingR)
+library(car)
+library(effectsize)
+library(multcomp)
+library(leaps)
+library(glmnet)
+library(pls)
+library(lmtest)
+library(dplyr)
+library(ggplot2)
+library(vcd)
+
+###CARGAMOS LA BASE DE DATOS DESDE SU WORKING DIRECTORY
+BBDD <- read.csv('ESS3e03_7-ESS7e02_3-ESS11-subset.csv',header=TRUE)
+str(BBDD)
+
+
+
+
+
+
+######ELIMINAR COLUMNAS NO DESEADAS YA QUE NO SON DE INTERES PARA EL PROYECTO
+
+# Eliminar las columnas no deseadas
+columnas_a_eliminar <- c("name", "edition", "proddate", "idno", "dweight","pspwght", "pweight","anweight", "prob", "stratum", "psu")
+BBDD1 <- BBDD[, !(names(BBDD) %in% columnas_a_eliminar)]
+
+# Verificar la estructura del dataframe limpio
+str(BBDD1)
+summary(BBDD1)
+
+
+
+#####VERIFICAMOS QUE NO HAYA VALORES FALTANTES EN LAS VARIABLES QUE NOS HEMOS QUEDADO
+
+# Verificar NAs
+nas_por_columna <- colSums(is.na(BBDD1))
+print(nas_por_columna)
+#NO HAY NAs, ahora quitar las filas donde hay valores que no son validos
+
+
+
+
+#######ELIMINAMOS LAS FILAS DONDE HAY VALORES QUE NO SON VÁLIDOS PARA CADA UNA DE LAS VARIABLES
+
+# Identificar filas a eliminar para fltdpr feltdepressedpastweek
+filas_a_eliminar1 <- which(!is.na(BBDD1$fltdpr) & !BBDD1$fltdpr %in% 1:4)
+BBDD2 <- BBDD1[-filas_a_eliminar1, ]
+
+# Identificar filas a eliminar para wrhpp werehappypastweek
+filas_a_eliminar2<- which(!is.na(BBDD2$wrhpp) & !BBDD2$wrhpp %in% 1:4)
+BBDD3 <- BBDD2[-filas_a_eliminar2, ]
+
+# Identificar filas a eliminar para enjlf enjoyedlifepastweek
+filas_a_eliminar3 <- which(!is.na(BBDD3$enjlf) & !BBDD3$enjlf %in% 1:4)
+BBDD4 <- BBDD3[-filas_a_eliminar3, ]
+
+# Identificar filas a eliminar para fltsd
+filas_a_eliminar4 <- which(!is.na(BBDD4$fltsd) & !BBDD4$fltsd %in% 1:4)
+BBDD5 <- BBDD4[-filas_a_eliminar4, ]
+
+#Borrar valor 999 de agea edad
+BBDD_final <- subset(BBDD5, agea != 999)
+
+summary(BBDD_final)
+str(BBDD_final)
+
+
+
+####TODAS LAS VARIABLES QUE ESTAN EN ESCALA TIPO LIKERT Y LAS VARIABLES ESSROUND Y CNTRY LAS PASAMOS A FACTORES
+
+#Pasar las variables tipo likert a factores
+BBDD_final$fltdpr <- factor(BBDD_final$fltdpr, levels = c(1:4), 
+                             labels = c("None or almost none of the time", "Some of the time", 
+                                        "Most of the time", "All or almost all of the time"))
+
+BBDD_final$fltsd <- factor(BBDD_final$fltsd, levels = c(1:4), 
+                            labels = c("None or almost none of the time", "Some of the time", 
+                                       "Most of the time", "All or almost all of the time"))
+
+BBDD_final$wrhpp <- factor(BBDD_final$wrhpp, levels = c(1:4), 
+                            labels = c("None or almost none of the time", "Some of the time", 
+                                       "Most of the time", "All or almost all of the time"))
+
+BBDD_final$enjlf <- factor(BBDD_final$enjlf, levels = c(1:4), 
+                            labels = c("None or almost none of the time", "Some of the time", 
+                                       "Most of the time", "All or almost all of the time"))
+
+# Convertir la variable cntry a factor
+BBDD_final$cntry <- as.factor(BBDD_final$cntry)
+
+
+# Convertir la variable essround a factor
+BBDD_final$essround <- as.factor(BBDD_final$essround)
+
+
+
+
+#####HACEMOS summary PARA OBTENER UN RESUMEN ESTADISTICO BÁSICO
+summary(BBDD_final)
+
+
+####CAMBIAMOS NOMBRE DE LAS VARIABLES PARA QUE SEAN MÁS COMPRENSIBLES
+library(dplyr)
+
+BBDD_final <- BBDD_final %>%
+  rename(
+    felicidad = wrhpp,
+    depresion = fltdpr,
+    tristeza = fltsd,
+    disfrute_de_vida = enjlf,
+    año = essround
+  )
+str(BBDD_final)
+
+# Guardar BBDD_final en la carpeta:
+write.csv(BBDD_final, file = "BBDD_DEPURADA.csv")
+
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
