@@ -39,6 +39,6 @@ En el repositorio se puede encontrar:
 
 -La base de datos depurada
 
--El dashboard, tanto su código como el html
+-El dashboard, tanto su código como el html. Puedes visualizar el dashboard en línea a través del siguiente enlace: [Ver Dashboard](https://lluisb.shinyapps.io/Dashboard3/)
 
 -Un pdf con el informe y su código asociado
