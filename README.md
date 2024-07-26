@@ -32,8 +32,13 @@ Metodología
 El proyecto utiliza una base de datos estructurada para generar un dashboard con tres gráficos interactivos y un informe detallado. Esta herramienta permitirá una visualización efectiva y la extracción de conclusiones basadas en el análisis de los datos.
 
 En el repositorio se puede encontrar:
+
 -La base de datos original
+
 -El código para su depuración
+
 -La base de datos depurada
+
 -El dashboard, tanto su código como el html
+
 -Un pdf con el informe y su código asociado
